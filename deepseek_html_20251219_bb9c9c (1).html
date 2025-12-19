@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音乐情感地形图 | QQ音乐用户数据看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* 情感色彩系统 */
+            --joy: #FF9F1C;
+            --sadness: #1A759F;
+            --energy: #E63946;
+            --peace: #2A9D8F;
+            --complex: #9D4EDD;
+            --romantic: #FF6B8B;
+            --mysterious: #6A4C93;
+            --nostalgic: #9C6644;
+            
+            /* UI 色彩 */
+            --bg-primary: #0D1B2A;
+            --bg-secondary: #1B263B;
+            --bg-card: rgba(27, 38, 59, 0.9);
+            --text-primary: #E0E1DD;
+            --text-secondary: #778DA9;
+            --accent: #9D4EDD;
+            --border: #415A77;
+            --grid-line: rgba(65, 90, 119, 0.3);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .dashboard-container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        /* 头部区域 */
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 25px 30px;
+            background: var(--bg-card);
+            border-radius: 20px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo-area h1 {
+            font-size: 2.4rem;
+            background: linear-gradient(90deg, var(--accent), var(--joy));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .logo-area .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+        }
+
+        .export-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .export-btn {
+            background: rgba(157, 78, 221, 0.2);
+            border: 1px solid var(--accent);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .export-btn:hover {
+            background: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(157, 78, 221, 0.4);
+        }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 25px;
+            text-align: center;
+        }
+
+        .stat-card {
+            background: rgba(65, 90, 119, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            border-left: 4px solid var(--accent);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            background: rgba(65, 90, 119, 0.3);
+        }
+
+        .stat-value {
+            font-size: 2.4rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            background: linear-gradient(90deg, var(--joy), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        /* 卡片样式 */
+        .dashboard-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title-icon {
+            font-size: 1.6rem;
+        }
+
+        .card-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* 用户分类网格 */
+        .user-category-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .user-category {
+            background: rgba(65, 90, 119, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .user-category:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent);
+            box-shadow: 0 5px 15px rgba(157, 78, 221, 0.2);
+        }
+
+        .user-category.active {
+            border-color: var(--accent);
+            background: rgba(157, 78, 221, 0.1);
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .category-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 1.2rem;
+        }
+
+        .category-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .category-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .stat-desc {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-top: 2px;
+        }
+
+        /* 图表容器 */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .chart-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chart-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .chart-btn:hover {
+            background: var(--accent);
+        }
+
+        /* 情感分析 */
+        .emotion-analysis {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .emotion-item {
+            margin-bottom: 12px;
+        }
+
+        .emotion-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .emotion-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .emotion-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .emotion-meter {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .emotion-fill {
+            height: 100%;
+            border-radius: 5px;
+            transition: width 1s ease-out;
+        }
+
+        /* 底部面板 */
+        .bottom-panel {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1400px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .bottom-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+            
+            .stats-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .user-category-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-summary {
+                grid-template-columns: 1fr;
+            }
+            
+            .export-controls {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .export-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(20px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+
+        .dashboard-card {
+            animation: fadeIn 0.6s ease-out forwards;
+            opacity: 0;
+        }
+
+        .dashboard-card:nth-child(1) { animation-delay: 0.1s; }
+        .dashboard-card:nth-child(2) { animation-delay: 0.2s; }
+        .dashboard-card:nth-child(3) { animation-delay: 0.3s; }
+        .dashboard-card:nth-child(4) { animation-delay: 0.4s; }
+        .dashboard-card:nth-child(5) { animation-delay: 0.5s; }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #8a3fd4;
+        }
+
+        /* 加载状态 */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* 下载提示 */
+        .download-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--accent);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            display: none;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 下载提示 -->
+    <div id="downloadMessage" class="download-message"></div>
+
+    <div class="dashboard-container">
+        <!-- 头部统计区域 -->
+        <header class="dashboard-header">
+            <div class="logo-area">
+                <h1>🎵 音乐情感地形图</h1>
+                <div class="subtitle">QQ音乐用户数据综合看板 · 实时情感可视化分析</div>
+            </div>
+            
+            <div class="export-controls">
+                <button class="export-btn" onclick="downloadFullDashboard()">
+                    📥 下载完整看板
+                </button>
+                <button class="export-btn" onclick="downloadAllCharts()">
+                    🎨 下载所有图表
+                </button>
+            </div>
+        </header>
+
+        <!-- 统计摘要 -->
+        <div class="stats-summary">
+            <div class="stat-card">
+                <div class="stat-value">8.42M</div>
+                <div class="stat-label">日活跃用户</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">156.7M</div>
+                <div class="stat-label">总音轨分析</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">4.82</div>
+                <div class="stat-label">日均小时</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">92.3%</div>
+                <div class="stat-label">情感识别率</div>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 左侧面板 -->
+            <div class="left-panel">
+                <!-- 用户分类分析 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">
+                                <span class="card-title-icon">🎯</span>
+                                QQ音乐用户分类分析
+                            </div>
+                            <div class="card-subtitle">基于收听行为的六类用户画像</div>
+                        </div>
+                        <div class="chart-actions">
+                            <button class="chart-btn" onclick="downloadChart('userDistributionChart')">下载图表</button>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="userDistributionChart"></canvas>
+                    </div>
+                    
+                    <div class="user-category-grid" style="margin-top: 20px;">
+                        <!-- 用户分类卡片将通过JS动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 情感分析详情 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">
+                                <span class="card-title-icon">🎭</span>
+                                整体情感分布
+                            </div>
+                            <div class="card-subtitle">基于8.42M用户的情感数据分析</div>
+                        </div>
+                        <div class="chart-actions">
+                            <button class="chart-btn" onclick="downloadChart('emotionRadarChart')">下载图表</button>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="emotionRadarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 时间分布 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">
+                                <span class="card-title-icon">⏰</span>
+                                用户活跃时间分布
+                            </div>
+                            <div class="card-subtitle">24小时收听行为模式分析</div>
+                        </div>
+                        <div class="chart-actions">
+                            <button class="chart-btn" onclick="downloadChart('timeDistributionChart')">下载图表</button>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="timeDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧面板 -->
+            <div class="right-panel">
+                <!-- 音乐特征分析 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">
+                                <span class="card-title-icon">🎛️</span>
+                                音乐特征分析
+                            </div>
+                            <div class="card-subtitle">用户群体的音乐偏好特征</div>
+                        </div>
+                        <div class="chart-actions">
+                            <button class="chart-btn" onclick="downloadChart('featureRadarChart')">下载图表</button>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="featureRadarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 音乐类型偏好 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">
+                                <span class="card-title-icon">🎶</span>
+                                音乐类型偏好分布
+                            </div>
+                            <div class="card-subtitle">基于用户群体的类型偏好分析</div>
+                        </div>
+                        <div class="chart-actions">
+                            <button class="chart-btn" onclick="downloadChart('genreChart')">下载图表</button>
+                            <button class="chart-btn" onclick="toggleChartType('genreChart')">切换视图</button>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="genreChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 区域情感差异 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">
+                                <span class="card-title-icon">🌍</span>
+                                区域情感特征差异
+                            </div>
+                            <div class="card-subtitle">不同城市用户的音乐情感偏好</div>
+                        </div>
+                        <div class="chart-actions">
+                            <button class="chart-btn" onclick="downloadChart('regionChart')">下载图表</button>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="regionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部面板 -->
+        <div class="bottom-panel">
+            <!-- 用户行为趋势 -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">
+                            <span class="card-title-icon">📈</span>
+                            用户行为趋势分析
+                        </div>
+                        <div class="card-subtitle">近30天用户行为变化趋势</div>
+                    </div>
+                    <div class="chart-actions">
+                        <button class="chart-btn" onclick="downloadChart('trendChart')">下载图表</button>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 情感地形对比 -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">
+                            <span class="card-title-icon">🗺️</span>
+                            情感地形对比
+                        </div>
+                        <div class="card-subtitle">不同用户群体的情感地形特征</div>
+                    </div>
+                    <div class="chart-actions">
+                        <button class="chart-btn" onclick="downloadChart('terrainChart')">下载图表</button>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="terrainChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 用户分类数据
+        const userCategories = [
+            {
+                id: 'explorer',
+                name: '情感探索者',
+                icon: '🗺️',
+                color: '#FF9F1C',
+                percentage: 24.7,
+                dailySongs: 142,
+                emotionIndex: 3.2,
+                description: '追求多元情感体验，喜欢发现新音乐'
+            },
+            {
+                id: 'nostalgic',
+                name: '怀旧沉浸者',
+                icon: '📻',
+                color: '#9C6644',
+                percentage: 18.3,
+                dailySongs: 87,
+                repeatIndex: 4.8,
+                description: '偏爱经典老歌，重视音乐记忆连接'
+            },
+            {
+                id: 'energetic',
+                name: '能量释放者',
+                icon: '⚡',
+                color: '#E63946',
+                percentage: 22.1,
+                dailySongs: 203,
+                rhythmIndex: 4.5,
+                description: '偏好高强度节奏音乐，用于运动/工作'
+            },
+            {
+                id: 'healer',
+                name: '情感疗愈者',
+                icon: '🍃',
+                color: '#2A9D8F',
+                percentage: 15.6,
+                dailySongs: 65,
+                peaceIndex: 4.2,
+                description: '寻求平静与治愈，偏好轻音乐/纯音乐'
+            },
+            {
+                id: 'social',
+                name: '社交分享者',
+                icon: '💬',
+                color: '#FF6B8B',
+                percentage: 12.4,
+                dailyShares: 4.7,
+                interactionRate: 89,
+                description: '重视音乐社交，频繁分享与评论'
+            },
+            {
+                id: 'expert',
+                name: '专业深挖者',
+                icon: '🎛️',
+                color: '#6A4C93',
+                percentage: 6.9,
+                albumCompletion: 3.2,
+                complexityIndex: 4.9,
+                description: '关注制作细节，偏好复杂编曲音乐'
+            }
+        ];
+
+        // 情感数据
+        const emotionData = {
+            labels: ['喜悦/活力', '平静/专注', '激昂/能量', '忧郁/怀旧', '复杂/混合'],
+            datasets: [{
+                label: '情感分布',
+                data: [34.2, 28.7, 18.4, 12.3, 6.4],
+                backgroundColor: [
+                    'rgba(255, 159, 28, 0.6)',
+                    'rgba(42, 157, 143, 0.6)',
+                    'rgba(230, 57, 70, 0.6)',
+                    'rgba(26, 117, 159, 0.6)',
+                    'rgba(157, 78, 221, 0.6)'
+                ],
+                borderColor: [
+                    '#FF9F1C',
+                    '#2A9D8F',
+                    '#E63946',
+                    '#1A759F',
+                    '#9D4EDD'
+                ],
+                borderWidth: 2
+            }]
+        };
+
+        // 音乐特征数据
+        const featureData = {
+            labels: ['节奏强度', '情感复杂度', '音色丰富度', '动态范围', '旋律复杂度', '和声丰富度'],
+            datasets: [{
+                label: '情感探索者',
+                data: [4.2, 3.8, 4.5, 3.2, 3.5, 4.1],
+                backgroundColor: 'rgba(255, 159, 28, 0.2)',
+                borderColor: '#FF9F1C',
+                borderWidth: 2,
+                pointBackgroundColor: '#FF9F1C'
+            }, {
+                label: '怀旧沉浸者',
+                data: [3.1, 2.8, 3.2, 2.9, 4.2, 3.8],
+                backgroundColor: 'rgba(156, 102, 68, 0.2)',
+                borderColor: '#9C6644',
+                borderWidth: 2,
+                pointBackgroundColor: '#9C6644'
+            }]
+        };
+
+        // 初始化图表
+        let charts = {};
+
+        function initCharts() {
+            // 1. 用户分布饼图
+            const userCtx = document.getElementById('userDistributionChart').getContext('2d');
+            charts.userDistributionChart = new Chart(userCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: userCategories.map(cat => cat.name),
+                    datasets: [{
+                        data: userCategories.map(cat => cat.percentage),
+                        backgroundColor: userCategories.map(cat => cat.color),
+                        borderColor: 'rgba(27, 38, 59, 0.8)',
+                        borderWidth: 2,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#E0E1DD',
+                                padding: 20,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(27, 38, 59, 0.9)',
+                            titleColor: '#E0E1DD',
+                            bodyColor: '#E0E1DD',
+                            borderColor: '#9D4EDD',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.parsed}%`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+
+            // 2. 情感雷达图
+            const emotionCtx = document.getElementById('emotionRadarChart').getContext('2d');
+            charts.emotionRadarChart = new Chart(emotionCtx, {
+                type: 'radar',
+                data: emotionData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            pointLabels: {
+                                color: '#E0E1DD',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            ticks: {
+                                backdropColor: 'transparent',
+                                color: '#778DA9',
+                                showLabelBackdrop: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    elements: {
+                        line: {
+                            tension: 0.4
+                        }
+                    }
+                }
+            });
+
+            // 3. 时间分布折线图
+            const timeCtx = document.getElementById('timeDistributionChart').getContext('2d');
+            charts.timeDistributionChart = new Chart(timeCtx, {
+                type: 'line',
+                data: {
+                    labels: ['0:00', '4:00', '8:00', '12:00', '16:00', '20:00', '24:00'],
+                    datasets: [{
+                        label: '活跃用户比例',
+                        data: [8.2, 5.1, 12.7, 25.3, 31.4, 42.8, 18.9],
+                        borderColor: '#9D4EDD',
+                        backgroundColor: 'rgba(157, 78, 221, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#9D4EDD',
+                        pointRadius: 5,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD',
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `活跃度: ${context.parsed.y}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 4. 特征雷达图
+            const featureCtx = document.getElementById('featureRadarChart').getContext('2d');
+            charts.featureRadarChart = new Chart(featureCtx, {
+                type: 'radar',
+                data: featureData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            pointLabels: {
+                                color: '#E0E1DD',
+                                font: {
+                                    size: 11
+                                }
+                            },
+                            ticks: {
+                                backdropColor: 'transparent',
+                                color: '#778DA9',
+                                showLabelBackdrop: false,
+                                max: 5,
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    elements: {
+                        line: {
+                            tension: 0.3
+                        }
+                    }
+                }
+            });
+
+            // 5. 音乐类型柱状图
+            const genreCtx = document.getElementById('genreChart').getContext('2d');
+            charts.genreChart = new Chart(genreCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['流行', '电子', '嘻哈', '摇滚', '民谣', '纯音乐', '古典', '爵士'],
+                    datasets: [{
+                        label: '偏好度 (%)',
+                        data: [38.2, 24.7, 18.9, 15.3, 12.8, 22.4, 8.7, 6.2],
+                        backgroundColor: [
+                            'rgba(255, 159, 28, 0.7)',
+                            'rgba(230, 57, 70, 0.7)',
+                            'rgba(157, 78, 221, 0.7)',
+                            'rgba(255, 107, 139, 0.7)',
+                            'rgba(156, 102, 68, 0.7)',
+                            'rgba(42, 157, 143, 0.7)',
+                            'rgba(106, 76, 147, 0.7)',
+                            'rgba(26, 117, 159, 0.7)'
+                        ],
+                        borderColor: [
+                            '#FF9F1C',
+                            '#E63946',
+                            '#9D4EDD',
+                            '#FF6B8B',
+                            '#9C6644',
+                            '#2A9D8F',
+                            '#6A4C93',
+                            '#1A759F'
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD',
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // 6. 区域差异气泡图
+            const regionCtx = document.getElementById('regionChart').getContext('2d');
+            charts.regionChart = new Chart(regionCtx, {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: '北京',
+                        data: [{x: 4.2, y: 3.8, r: 15}],
+                        backgroundColor: 'rgba(255, 159, 28, 0.6)',
+                        borderColor: '#FF9F1C'
+                    }, {
+                        label: '上海',
+                        data: [{x: 3.8, y: 4.1, r: 12}],
+                        backgroundColor: 'rgba(230, 57, 70, 0.6)',
+                        borderColor: '#E63946'
+                    }, {
+                        label: '广州',
+                        data: [{x: 3.5, y: 3.2, r: 10}],
+                        backgroundColor: 'rgba(42, 157, 143, 0.6)',
+                        borderColor: '#2A9D8F'
+                    }, {
+                        label: '深圳',
+                        data: [{x: 4.0, y: 3.6, r: 8}],
+                        backgroundColor: 'rgba(157, 78, 221, 0.6)',
+                        borderColor: '#9D4EDD'
+                    }, {
+                        label: '成都',
+                        data: [{x: 3.2, y: 4.3, r: 9}],
+                        backgroundColor: 'rgba(255, 107, 139, 0.6)',
+                        borderColor: '#FF6B8B'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '情感强度',
+                                color: '#E0E1DD'
+                            },
+                            min: 2.5,
+                            max: 4.5,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '音乐复杂度',
+                                color: '#E0E1DD'
+                            },
+                            min: 2.5,
+                            max: 4.5,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: 情感强度 ${context.parsed.x}, 复杂度 ${context.parsed.y}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 7. 趋势折线图
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            const dates = [];
+            for (let i = 29; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                dates.push(`${date.getMonth() + 1}/${date.getDate()}`);
+            }
+
+            charts.trendChart = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: '日均收听时长(小时)',
+                        data: Array.from({length: 30}, (_, i) => 4.5 + Math.sin(i / 3) * 0.5),
+                        borderColor: '#9D4EDD',
+                        backgroundColor: 'rgba(157, 78, 221, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3
+                    }, {
+                        label: '情感识别准确率(%)',
+                        data: Array.from({length: 30}, (_, i) => 90 + Math.sin(i / 4) * 2.5),
+                        borderColor: '#2A9D8F',
+                        backgroundColor: 'rgba(42, 157, 143, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD',
+                                maxTicksLimit: 10
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 8. 情感地形对比图
+            const terrainCtx = document.getElementById('terrainChart').getContext('2d');
+            charts.terrainChart = new Chart(terrainCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: '情感探索者',
+                        data: Array.from({length: 20}, (_, i) => ({
+                            x: 3 + Math.random() * 2,
+                            y: 3.5 + Math.random() * 1.5
+                        })),
+                        backgroundColor: 'rgba(255, 159, 28, 0.6)',
+                        borderColor: '#FF9F1C'
+                    }, {
+                        label: '怀旧沉浸者',
+                        data: Array.from({length: 15}, (_, i) => ({
+                            x: 2.5 + Math.random() * 1,
+                            y: 2.5 + Math.random() * 1
+                        })),
+                        backgroundColor: 'rgba(156, 102, 68, 0.6)',
+                        borderColor: '#9C6644'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '情感多样性',
+                                color: '#E0E1DD'
+                            },
+                            min: 1,
+                            max: 6,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '情感强度',
+                                color: '#E0E1DD'
+                            },
+                            min: 1,
+                            max: 6,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 生成用户分类卡片
+            generateUserCards();
+        }
+
+        function generateUserCards() {
+            const container = document.querySelector('.user-category-grid');
+            container.innerHTML = '';
+            
+            userCategories.forEach(category => {
+                const card = document.createElement('div');
+                card.className = 'user-category';
+                card.dataset.category = category.id;
+                card.onclick = () => selectCategory(category.id);
+                
+                let statsHTML = '';
+                if (category.dailySongs) {
+                    statsHTML += `
+                        <div class="stat-item">
+                            <div class="stat-number">${category.dailySongs}</div>
+                            <div class="stat-desc">日均歌曲</div>
+                        </div>
+                    `;
+                }
+                if (category.emotionIndex) {
+                    statsHTML += `
+                        <div class="stat-item">
+                            <div class="stat-number">${category.emotionIndex}</div>
+                            <div class="stat-desc">情感指数</div>
+                        </div>
+                    `;
+                }
+                if (category.interactionRate) {
+                    statsHTML += `
+                        <div class="stat-item">
+                            <div class="stat-number">${category.interactionRate}%</div>
+                            <div class="stat-desc">互动率</div>
+                        </div>
+                    `;
+                }
+                
+                card.innerHTML = `
+                    <div class="category-header">
+                        <div class="category-icon" style="background: ${category.color}20; color: ${category.color};">
+                            ${category.icon}
+                        </div>
+                        <div class="category-name">${category.name}</div>
+                    </div>
+                    <div class="category-desc">${category.description}</div>
+                    <div class="category-stats">
+                        <div class="stat-item">
+                            <div class="stat-number">${category.percentage}%</div>
+                            <div class="stat-desc">用户占比</div>
+                        </div>
+                        ${statsHTML}
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        function selectCategory(categoryId) {
+            // 移除所有active类
+            document.querySelectorAll('.user-category').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            // 添加active类到选中的卡片
+            const selectedCard = document.querySelector(`[data-category="${categoryId}"]`);
+            if (selectedCard) {
+                selectedCard.classList.add('active');
+            }
+            
+            // 更新相关图表数据
+            updateChartsForCategory(categoryId);
+        }
+
+        function updateChartsForCategory(categoryId) {
+            // 这里可以添加根据选中分类更新图表的逻辑
+            console.log(`选中分类: ${categoryId}`);
+        }
+
+        // 图表切换功能
+        function toggleChartType(chartId) {
+            const chart = charts[chartId];
+            if (chart.config.type === 'bar') {
+                chart.config.type = 'pie';
+                chart.config.options.scales = {};
+            } else {
+                chart.config.type = 'bar';
+                chart.config.options = {
+                    ...chart.config.options,
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#E0E1DD',
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+            chart.update();
+        }
+
+        // 下载单个图表
+        function downloadChart(chartId) {
+            const chart = charts[chartId];
+            if (chart) {
+                const link = document.createElement('a');
+                link.download = `音乐情感地形图-${chartId}.png`;
+                link.href = chart.toBase64Image();
+                link.click();
+                
+                showMessage(`图表 ${chartId} 已开始下载`);
+            }
+        }
+
+        // 下载所有图表
+        async function downloadAllCharts() {
+            showMessage('开始打包所有图表，请稍候...');
+            
+            for (const [chartId, chart] of Object.entries(charts)) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                downloadChart(chartId);
+            }
+            
+            setTimeout(() => {
+                showMessage('所有图表下载完成！');
+            }, Object.keys(charts).length * 500);
+        }
+
+        // 下载完整看板
+        function downloadFullDashboard() {
+            showMessage('正在生成完整看板图片，请稍候...');
+            
+            html2canvas(document.querySelector('.dashboard-container'), {
+                backgroundColor: '#0D1B2A',
+                scale: 2,
+                useCORS: true,
+                logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = '音乐情感地形图-完整看板.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                
+                showMessage('完整看板图片已开始下载');
+            });
+        }
+
+        // 显示消息
+        function showMessage(text) {
+            const messageEl = document.getElementById('downloadMessage');
+            messageEl.textContent = text;
+            messageEl.style.display = 'block';
+            
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            
+            // 默认选中第一个分类
+            setTimeout(() => {
+                selectCategory('explorer');
+            }, 1000);
+            
+            // 添加动画效果
+            const cards = document.querySelectorAll('.dashboard-card');
+            cards.forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.1}s`;
+            });
+        });
+
+        // 窗口大小变化时重绘图表
+        window.addEventListener('resize', function() {
+            Object.values(charts).forEach(chart => {
+                chart.resize();
+            });
+        });
+    </script>
+</body>
+</html>
